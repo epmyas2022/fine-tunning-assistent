@@ -3,7 +3,7 @@ import modal
 app = modal.App("qwen-finetune")
 
 
-filename = "alpaca_data_cleaned_spanish.json"
+filename = "isaac_dataset_pirata_v2.json"
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -21,7 +21,7 @@ volume = modal.Volume.from_name("trained-models", create_if_missing=True)
 @app.function(
     image=image,
     gpu="T4",
-    timeout=60 * 60,
+    timeout=60 * 60 * 24, # 24 horas
     volumes={"/trained-models": volume},
 )
 def training():
@@ -33,15 +33,15 @@ def training():
     max_sequence_length = 1024
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="unsloth/Llama-3.2-1B-Instruct",
+        model_name="unsloth/Llama-3.2-3B-Instruct",
         max_seq_length=max_sequence_length,
         load_in_4bit=True,
     )
 
     model = FastLanguageModel.get_peft_model(
         model=model,
-        r=16,
-        lora_alpha=16,
+        r=32,
+        lora_alpha=64,
         lora_dropout=0,  # Taza de desajuste
         target_modules=[
             "q_proj",
@@ -56,7 +56,7 @@ def training():
 
     data = load_dataset("json", data_files=f"data/{filename}", split="train")
 
-
+    #data = data.filter(lambda x: x["lang"] == "es")
     def transform_data(data):
         alpaca_data = []
         messages = {row["message_id"]: row for row in data}
@@ -105,12 +105,13 @@ def training():
         tokenizer=tokenizer,
         train_dataset=data,
         args=TrainingArguments(
-            per_device_train_batch_size=2,
-            gradient_accumulation_steps=4,
-            warmup_steps=5,
-            max_steps=100,
-            learning_rate=5e-5,
-            logging_steps=1,
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=8,
+            max_steps=-1,
+            warmup_steps=20,
+            num_train_epochs=4,
+            learning_rate=2e-4,
+            logging_steps=10,
             output_dir="./tmp/outputs",
         ),
     )
@@ -135,4 +136,4 @@ def training():
 
 @app.local_entrypoint()
 def main():
-    training.remote()
+    training.spawn()
