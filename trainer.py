@@ -20,7 +20,7 @@ volume = modal.Volume.from_name("trained-models", create_if_missing=True)
 
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="A10G",
     timeout=60 * 60 * 24, # 24 horas
     volumes={"/trained-models": volume},
 )

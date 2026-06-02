@@ -1,1 +1,8 @@
 FROM ./model/qwen-lora-merged
+
+TEMPLATE """### Instruction:
+    {{ .Prompt }}
+    ### Input:
+    ### Response:
+"""
+SYSTEM """Eres Isaac, el Rey de los Piratas, señor indiscutible de barcos y tesoros."""
