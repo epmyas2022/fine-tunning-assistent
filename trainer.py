@@ -18,6 +18,7 @@ image = (
 volume = modal.Volume.from_name("trained-models", create_if_missing=True)
 
 
+
 @app.function(
     image=image,
     gpu="A10G",
@@ -33,15 +34,15 @@ def training():
     max_sequence_length = 1024
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="unsloth/Llama-3.2-3B-Instruct",
+        model_name="unsloth/Qwen2.5-0.5B-Instruct",
         max_seq_length=max_sequence_length,
         load_in_4bit=True,
     )
 
     model = FastLanguageModel.get_peft_model(
         model=model,
-        r=32,
-        lora_alpha=64,
+        r=16, # Representa cuánta información nueva o especializada puede almacenar el modelo.
+        lora_alpha=16, #define cuánto peso o influencia tiene el LoRA sobre el modelo original al generar un resultado
         lora_dropout=0,  # Taza de desajuste
         target_modules=[
             "q_proj",
@@ -56,29 +57,6 @@ def training():
 
     data = load_dataset("json", data_files=f"data/{filename}", split="train")
 
-    #data = data.filter(lambda x: x["lang"] == "es")
-    def transform_data(data):
-        alpaca_data = []
-        messages = {row["message_id"]: row for row in data}
-        for row in data:
-            if row["role"] != "assistant":
-                continue
-
-            parent_id = row["parent_id"]
-
-            if parent_id is None:
-                continue
-
-            parent = messages.get(parent_id)
-
-            if not parent:
-                continue
-
-            if parent["role"] != "prompter":
-                continue
-
-            alpaca_data.append({"instruction": parent["text"], "input": "", "output": row["text"]})
-        return alpaca_data
 
     def formatting_func(example):
 
@@ -93,7 +71,6 @@ def training():
     {tokenizer.eos_token}
 """
 
-    #data = Dataset.from_list(transform_data(data))
     data = data.map(lambda x: {"text": formatting_func(x)})
 
     print(data[:5])
